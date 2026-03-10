@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Babylon.js 大气效果演示</title>
+    <style>
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+        #controls { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 15px; border-radius: 8px; min-width: 250px; }
+        .control-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; font-size: 14px; }
+        select, input[type="range"] { width: 100%; margin-bottom: 5px; }
+        .value-display { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+        button { background: #2196F3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 8px; margin-bottom: 8px; }
+        button:hover { background: #1976D2; }
+        .preset-buttons { margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="controls">
+        <h3 style="margin: 0 0 15px 0;">大气效果演示</h3>
+
+        <div class="preset-buttons">
+            <button onclick="setPreset('day')">🌞 白天</button>
+            <button onclick="setPreset('sunset')">🌇 日落</button>
+            <button onclick="setPreset('space')">🛰️ 太空视角</button>
+            <button onclick="setPreset('highAltitude')">✈️ 高空</button>
+        </div>
+
+        <div class="control-group">
+            <label for="sunAngleY">太阳高度角</label>
+            <input type="range" id="sunAngleY" min="-0.9" max="0.9" step="0.01" value="-0.3">
+            <div class="value-display" id="sunAngleYValue">-0.3</div>
+        </div>
+
+        <div class="control-group">
+            <label for="atmosphereThickness">大气层厚度</label>
+            <input type="range" id="atmosphereThickness" min="100" max="500" step="10" value="200">
+            <div class="value-display" id="atmosphereThicknessValue">200 km</div>
+        </div>
+
+        <div class="control-group">
+            <label for="mieCoefficient">米氏散射系数</label>
+            <input type="range" id="mieCoefficient" min="1e-6" max="50e-6" step="1e-6" value="21e-6">
+            <div class="value-display" id="mieCoefficientValue">21e-6</div>
+        </div>
+
+        <div class="control-group">
+            <label for="sunIntensity">太阳强度</label>
+            <input type="range" id="sunIntensity" min="5" max="30" step="1" value="15">
+            <div class="value-display" id="sunIntensityValue">15</div>
+        </div>
+    </div>
+
+    <script src="/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="/packages/dev/addons/public/js/babylon.addons.js"></script>
+
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        let scene, camera, sun, atmosphere, earth;
+        let currentPreset = 'day';
+
+        // 创建场景
+        const createScene = async () => {
+            scene = new BABYLON.Scene(engine);
+
+            // 相机
+            camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 1500, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 300;
+            camera.upperRadiusLimit = 10000;
+            camera.wheelPrecision = 50;
+
+            // 太阳
+            sun = new BABYLON.DirectionalLight("sun", new BABYLON.Vector3(-1, -0.3, 0.6), scene);
+            sun.intensity = 1.5;
+
+            // 地球
+            earth = BABYLON.MeshBuilder.CreateSphere("earth", {diameter: 12742 / 10, segments: 128}, scene);
+            const earthMaterial = new BABYLON.PBRMetallicRoughnessMaterial("earthMat", scene);
+            earthMaterial.baseColor = new BABYLON.Color3(0.1, 0.25, 0.6);
+            earthMaterial.metallic = 0.1;
+            earthMaterial.roughness = 0.8;
+            earth.material = earthMaterial;
+
+            // 大气效果
+            atmosphere = new BABYLON.Atmosphere(scene);
+            atmosphere.sun = sun;
+            atmosphere.planetRadius = 6371 / 10;
+            atmosphere.atmosphereRadius = (6371 + 200) / 10;
+            atmosphere.groundAlbedo = new BABYLON.Color3(0.3, 0.3, 0.3);
+            atmosphere.rayleighCoefficient = new BABYLON.Vector3(5.8e-6, 13.5e-6, 33.1e-6);
+            atmosphere.mieCoefficient = 21e-6;
+            atmosphere.sunIntensity = 15;
+
+            scene.clearColor = new BABYLON.Color4(0, 0, 0, 1);
+            atmosphere.render();
+
+            // 绑定控件事件
+            bindControls();
+
+            return scene;
+        };
+
+        // 绑定控件
+        function bindControls() {
+            // 太阳角度
+            const sunAngleY = document.getElementById('sunAngleY');
+            const sunAngleYValue = document.getElementById('sunAngleYValue');
+            sunAngleY.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                sunAngleYValue.textContent = value;
+                sun.direction.y = value;
+            });
+
+            // 大气层厚度
+            const atmosphereThickness = document.getElementById('atmosphereThickness');
+            const atmosphereThicknessValue = document.getElementById('atmosphereThicknessValue');
+            atmosphereThickness.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                atmosphereThicknessValue.textContent = value + ' km';
+                atmosphere.atmosphereRadius = (6371 + value) / 10;
+            });
+
+            // 米氏散射
+            const mieCoefficient = document.getElementById('mieCoefficient');
+            const mieCoefficientValue = document.getElementById('mieCoefficientValue');
+            mieCoefficient.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                mieCoefficientValue.textContent = value.toExponential();
+                atmosphere.mieCoefficient = value;
+            });
+
+            // 太阳强度
+            const sunIntensity = document.getElementById('sunIntensity');
+            const sunIntensityValue = document.getElementById('sunIntensityValue');
+            sunIntensity.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                sunIntensityValue.textContent = value;
+                atmosphere.sunIntensity = value;
+            });
+        }
+
+        // 预设场景
+        function setPreset(preset) {
+            currentPreset = preset;
+
+            switch(preset) {
+                case 'day':
+                    sun.direction.y = -0.3;
+                    camera.setPosition(new BABYLON.Vector3(0, 500, 1500));
+                    atmosphere.atmosphereRadius = (6371 + 200) / 10;
+                    atmosphere.mieCoefficient = 21e-6;
+                    atmosphere.sunIntensity = 15;
+                    break;
+
+                case 'sunset':
+                    sun.direction.y = -0.1;
+                    camera.setPosition(new BABYLON.Vector3(0, 200, 2000));
+                    atmosphere.atmosphereRadius = (6371 + 200) / 10;
+                    atmosphere.mieCoefficient = 30e-6;
+                    atmosphere.sunIntensity = 20;
+                    break;
+
+                case 'space':
+                    sun.direction.y = -0.5;
+                    camera.setPosition(new BABYLON.Vector3(0, 2000, 8000));
+                    atmosphere.atmosphereRadius = (6371 + 200) / 10;
+                    atmosphere.mieCoefficient = 21e-6;
+                    atmosphere.sunIntensity = 15;
+                    break;
+
+                case 'highAltitude':
+                    sun.direction.y = -0.4;
+                    camera.setPosition(new BABYLON.Vector3(0, 100, 400));
+                    atmosphere.atmosphereRadius = (6371 + 200) / 10;
+                    atmosphere.mieCoefficient = 15e-6;
+                    atmosphere.sunIntensity = 18;
+                    break;
+            }
+
+            // 更新控件显示
+            updateControlsFromAtmosphere();
+        }
+
+        // 更新控件值
+        function updateControlsFromAtmosphere() {
+            document.getElementById('sunAngleY').value = sun.direction.y;
+            document.getElementById('sunAngleYValue').textContent = sun.direction.y;
+
+            const thickness = (atmosphere.atmosphereRadius * 10) - 6371;
+            document.getElementById('atmosphereThickness').value = thickness;
+            document.getElementById('atmosphereThicknessValue').textContent = thickness.toFixed(0) + ' km';
+
+            document.getElementById('mieCoefficient').value = atmosphere.mieCoefficient;
+            document.getElementById('mieCoefficientValue').textContent = atmosphere.mieCoefficient.toExponential();
+
+            document.getElementById('sunIntensity').value = atmosphere.sunIntensity;
+            document.getElementById('sunIntensityValue').textContent = atmosphere.sunIntensity;
+        }
+
+        // 初始化
+        createScene().then((scene) => {
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+
+            window.addEventListener('resize', () => {
+                engine.resize();
+            });
+
+            // 默认显示日落场景
+            setPreset('sunset');
+        });
+    </script>
+</body>
+</html>

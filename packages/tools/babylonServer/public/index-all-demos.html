@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Babylon.js 全部功能示例导航</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .search-bar {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto 40px;
+            position: relative;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 50px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            outline: none;
+        }
+
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .category-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .category-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.2);
+        }
+
+        .category-title {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .demo-list {
+            list-style: none;
+        }
+
+        .demo-item {
+            margin-bottom: 12px;
+        }
+
+        .demo-link {
+            display: block;
+            padding: 12px 15px;
+            background: #f8f9fa;
+            color: #333;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+
+        .demo-link:hover {
+            background: #667eea;
+            color: white;
+            border-left-color: #764ba2;
+            transform: translateX(5px);
+        }
+
+        .demo-desc {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin-top: 3px;
+        }
+
+        .quick-actions {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .action-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: white;
+            border: none;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            cursor: pointer;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .category-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .quick-actions {
+                bottom: 20px;
+                right: 20px;
+            }
+
+            .action-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 Babylon.js 功能示例大全</h1>
+            <p class="subtitle">所有模块、特性、演示场景一站式导航</p>
+        </header>
+
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="🔍 搜索示例功能...">
+        </div>
+
+        <div class="category-grid" id="demoGrid">
+            <!-- 核心基础 -->
+            <div class="category-card">
+                <h2 class="category-title">🚀 基础核心</h2>
+                <ul class="demo-list">
+                    <li class="demo-item">
+                        <a href="/playground" class="demo-link" target="_blank">
+                            Playground 编辑器
+                            <div class="demo-desc">官方在线代码编辑器，支持实时预览</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="/test.html" class="demo-link" target="_blank">
+                            基础测试页面
+                            <div class="demo-desc">基础场景测试模板</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="/empty.html" class="demo-link" target="_blank">
+                            空白场景模板
+                            <div class="demo-desc">最小化空场景，用于快速开发</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="/index-ts.html" class="demo-link" target="_blank">
+                            TypeScript 模板
+                            <div class="demo-desc">TS开发的基础模板</div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 图形渲染 -->
+            <div class="category-card">
+                <h2 class="category-title">🎨 图形渲染</h2>
+                <ul class="demo-list">
+                    <li class="demo-item">
+                        <a href="/atmosphere-demo.html" class="demo-link" target="_blank">
+                            大气效果演示
+                            <div class="demo-desc">实时大气散射、日落、天空效果</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            PBR材质演示
+                            <div class="demo-desc">基于物理的渲染材质效果展示</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            后处理效果
+                            <div class="demo-desc"> bloom、景深、 motion blur等</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            粒子系统
+                            <div class="demo-desc">各种粒子特效展示</div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 物理引擎 -->
+            <div class="category-card">
+                <h2 class="category-title">⚡ 物理引擎</h2>
+                <ul class="demo-list">
+                    <li class="demo-item">
+                        <a href="/physics-demo.html" class="demo-link" target="_blank">
+                            综合物理演示
+                            <div class="demo-desc">支持Havok/Cannon.js双引擎切换</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            Ammo.js 物理
+                            <div class="demo-desc">Bullet物理引擎JS版本示例</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            碰撞检测
+                            <div class="demo-desc">各种碰撞检测场景</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            布料/柔体模拟
+                            <div class="demo-desc">软体物理效果演示</div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- XR/VR/AR -->
+            <div class="category-card">
+                <h2 class="category-title">🥽 XR 虚拟现实</h2>
+                <ul class="demo-list">
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            VR 体验
+                            <div class="demo-desc">虚拟现实场景示例</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            AR 增强现实
+                            <div class="demo-desc">增强现实应用示例</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            WebXR 基础
+                            <div class="demo-desc">WebXR API基础使用</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            手部追踪
+                            <div class="demo-desc">手部识别和交互示例</div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 动画 -->
+            <div class="category-card">
+                <h2 class="category-title">🎬 动画系统</h2>
+                <ul class="demo-list">
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            骨骼动画
+                            <div class="demo-desc">角色骨骼动画示例</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            关键帧动画
+                            <div class="demo-desc">属性动画、补间动画</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            形变动画
+                            <div class="demo-desc">Morph Target动画</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            逆向运动学
+                            <div class="demo-desc">IK动画系统</div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 音频 -->
+            <div class="category-card">
+                <h2 class="category-title">🔊 音频系统</h2>
+                <ul class="demo-list">
+                    <li class="demo-item">
+                        <a href="/audiov2-test.js" class="demo-link" target="_blank">
+                            AudioV2 测试
+                            <div class="demo-desc">新版音频系统测试页面</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            空间音频
+                            <div class="demo-desc">3D空间音频效果</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            音频分析
+                            <div class="demo-desc">频谱分析、可视化</div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 导航寻路 -->
+            <div class="category-card">
+                <h2 class="category-title">🧭 导航寻路</h2>
+                <ul class="demo-list">
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            Recast 导航网格
+                            <div class="demo-desc">自动寻路、导航网格生成</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            群体行为
+                            <div class="demo-desc">Crowd系统，多人寻路</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            路径平滑
+                            <div class="demo-desc">路径优化、平滑处理</div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 工具与编辑器 -->
+            <div class="category-card">
+                <h2 class="category-title">🛠️ 工具编辑器</h2>
+                <ul class="demo-list">
+                    <li class="demo-item">
+                        <a href="/packages/dev/inspector-v2/test/app/index.html" class="demo-link" target="_blank">
+                            Inspector V2 调试器
+                            <div class="demo-desc">新版场景调试器、属性编辑工具</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="/packages/public/umd/babylonjs-inspector-v2/test.html" class="demo-link" target="_blank">
+                            Inspector V2 测试页
+                            <div class="demo-desc">独立版调试器测试</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            节点材质编辑器
+                            <div class="demo-desc">可视化材质编辑</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="#" class="demo-link" target="_blank">
+                            GUI编辑器
+                            <div class="demo-desc">图形界面编辑</div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Viewer 组件 -->
+            <div class="category-card">
+                <h2 class="category-title">👁️ Viewer 查看器</h2>
+                <ul class="demo-list">
+                    <li class="demo-item">
+                        <a href="/packages/public/@babylonjs/viewer/test/apps/web/index.html" class="demo-link" target="_blank">
+                            Viewer 基础示例
+                            <div class="demo-desc">Babylon.js Viewer组件基础使用</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="/packages/public/@babylonjs/viewer/test/apps/web/published.html" class="demo-link" target="_blank">
+                            Viewer 发布版示例
+                            <div class="demo-desc">生产环境Viewer演示</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="/packages/tools/viewer/test/apps/web/index.html" class="demo-link" target="_blank">
+                            Viewer 工具测试
+                            <div class="demo-desc">Viewer开发测试页面</div>
+                        </a>
+                    </li>
+                    <li class="demo-item">
+                        <a href="/packages/tools/viewer/test/apps/web/analyze.html" class="demo-link" target="_blank">
+                            Viewer 分析工具
+                            <div class="demo-desc">性能分析和调试页面</div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <button class="action-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" title="回到顶部">
+            ⬆️
+        </button>
+        <button class="action-btn" onclick="toggleDarkMode()" title="深色模式">
+            🌙
+        </button>
+    </div>
+
+    <script>
+        // 搜索功能
+        const searchInput = document.getElementById('searchInput');
+        const demoItems = document.querySelectorAll('.demo-item');
+
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+
+            demoItems.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                if (text.includes(searchTerm)) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+
+            // 隐藏没有匹配项的分类
+            document.querySelectorAll('.category-card').forEach(card => {
+                const visibleItems = card.querySelectorAll('.demo-item:not(.hidden)');
+                if (visibleItems.length === 0) {
+                    card.classList.add('hidden');
+                } else {
+                    card.classList.remove('hidden');
+                }
+            });
+        });
+
+        // 深色模式切换
+        let darkMode = false;
+        function toggleDarkMode() {
+            darkMode = !darkMode;
+            if (darkMode) {
+                document.body.style.background = 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)';
+                document.querySelectorAll('.category-card').forEach(card => {
+                    card.style.background = '#34495e';
+                    card.style.color = 'white';
+                });
+                document.querySelectorAll('.category-title').forEach(title => {
+                    title.style.color = 'white';
+                });
+                document.querySelectorAll('.demo-link').forEach(link => {
+                    link.style.background = '#2c3e50';
+                    link.style.color = 'white';
+                });
+                document.querySelector('.action-btn:nth-child(2)').innerHTML = '☀️';
+            } else {
+                document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                document.querySelectorAll('.category-card').forEach(card => {
+                    card.style.background = 'white';
+                    card.style.color = '#333';
+                });
+                document.querySelectorAll('.category-title').forEach(title => {
+                    title.style.color = '#333';
+                });
+                document.querySelectorAll('.demo-link').forEach(link => {
+                    link.style.background = '#f8f9fa';
+                    link.style.color = '#333';
+                });
+                document.querySelector('.action-btn:nth-child(2)').innerHTML = '🌙';
+            }
+        }
+    </script>
+</body>
+</html>

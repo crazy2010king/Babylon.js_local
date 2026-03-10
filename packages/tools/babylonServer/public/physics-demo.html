@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Babylon.js 物理引擎演示</title>
+    <style>
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+        #controls { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 15px; border-radius: 8px; min-width: 200px; }
+        button { background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #45a049; }
+        h3 { margin: 0 0 10px 0; }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="controls">
+        <h3>物理引擎演示</h3>
+        <button onclick="spawnBox()">生成立方体</button>
+        <button onclick="spawnSphere()">生成球体</button>
+        <button onclick="resetScene()">重置场景</button>
+        <br>
+        <button onclick="setPhysicsEngine('havok')">Havok 引擎</button>
+        <button onclick="setPhysicsEngine('cannon')">Cannon.js</button>
+    </div>
+
+    <script src="/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script>
+    <script src="/cannon.js"></script>
+
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        let scene, camera, ground, physicsEngine;
+        let currentEngine = 'havok';
+
+        const createScene = async () => {
+            scene = new BABYLON.Scene(engine);
+
+            // 相机
+            camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 20, new BABYLON.Vector3(0, 5, 0), scene);
+            camera.attachControl(canvas, true);
+
+            // 灯光
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            // 地面
+            ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 20, height: 20}, scene);
+            const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+            groundMat.diffuseColor = new BABYLON.Color3.FromHexString("#2ecc71");
+            ground.material = groundMat;
+
+            // 初始化物理
+            await initPhysics();
+
+            // 生成几个初始物体
+            for (let i = 0; i < 5; i++) {
+                spawnBox(i * 2 - 4, 10 + i, 0);
+            }
+
+            return scene;
+        };
+
+        async function initPhysics() {
+            scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0));
+
+            if (currentEngine === 'havok') {
+                const havokInstance = await HavokPhysics();
+                physicsEngine = new BABYLON.HavokPlugin(true, havokInstance);
+                scene.setPhysicsEngine(physicsEngine);
+            } else {
+                physicsEngine = new BABYLON.CannonJSPlugin();
+                scene.setPhysicsEngine(physicsEngine);
+            }
+
+            // 地面物理
+            ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.9 }, scene);
+        }
+
+        function spawnBox(x = 0, y = 10, z = 0) {
+            const box = BABYLON.MeshBuilder.CreateBox("box", {size: 1}, scene);
+            box.position = new BABYLON.Vector3(x, y, z);
+            const mat = new BABYLON.StandardMaterial("boxMat", scene);
+            mat.diffuseColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+            box.material = mat;
+            box.physicsImpostor = new BABYLON.PhysicsImpostor(box, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 1, restitution: 0.7 }, scene);
+        }
+
+        function spawnSphere(x = 0, y = 10, z = 0) {
+            const sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 1}, scene);
+            sphere.position = new BABYLON.Vector3(x, y, z);
+            const mat = new BABYLON.StandardMaterial("sphereMat", scene);
+            mat.diffuseColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+            sphere.material = mat;
+            sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.7 }, scene);
+        }
+
+        async function setPhysicsEngine(engineType) {
+            currentEngine = engineType;
+            scene.dispose();
+            createScene().then(s => {
+                scene = s;
+            });
+        }
+
+        function resetScene() {
+            scene.getMeshByName("box")?.dispose();
+            scene.getMeshByName("sphere")?.dispose();
+        }
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+
+            window.addEventListener('resize', () => {
+                engine.resize();
+            });
+        });
+    </script>
+</body>
+</html>
