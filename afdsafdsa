@@ -1,0 +1,391 @@
+[33mcommit 793d073b1c976516fc28f74aefa4ce19620d1a91[m[33m ([m[1;36mHEAD -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: Raanan Weber <info@raananweber.com>
+Date:   Mon Mar 9 17:08:33 2026 -0700
+
+    Add support for versioned CDN URLs in Tools and Transcoder classes (#18047)
+    
+    - Introduced _CdnVersion in Tools and Transcoder to manage versioned CDN
+    URLs.
+    - Updated FetchToRef and GetWasmUrl methods to rewrite URLs based on the
+    version.
+    - Implemented updateCdnVersion function in updateVersion.js to automate
+    version updates.
+    
+    This assumes that a current version of any package is working with the
+    same version of all other packages. And it is overridable.
+    
+    Forum disucssion for more context:
+    
+    https://forum.babylonjs.com/t/how-to-inject-babylonjs-ktx2decoder-into-babylon/62160/26
+
+[33mcommit ca33eceec9d4afe5647ff557c65335822e10b37d[m
+Author: Vicente Cartas <vicente.cartas@outlook.com>
+Date:   Mon Mar 9 16:51:47 2026 -0700
+
+    Option for GPU particles to behave like CPU particles (#18057)
+    
+    This updates adds a new option to update the lifecycle of GPU particles
+    so they die properly like CPU particles do. From these forum questions:
+    
+    [Different behaviour for cpu and gpu particles regarding emit rate -
+    Bugs -
+    Babylon.js](https://forum.babylonjs.com/t/different-behaviour-for-cpu-and-gpu-particles-regarding-emit-rate/62655/3)
+    [Different behaviour for cpu and gpu particles after stop() call - Bugs
+    -
+    Babylon.js](https://forum.babylonjs.com/t/different-behaviour-for-cpu-and-gpu-particles-after-stop-call/62654/5)
+    
+    The behavior to update the GPU particles is behind a constructor option:
+    emitRateControl. This is false by default to not break backwards
+    compatibility.
+    
+    ---------
+    
+    Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+
+[33mcommit f2856d28a7bd813fe5da89bd72f6fd886e3d78fe[m
+Author: Vicente Cartas <vicente.cartas@outlook.com>
+Date:   Mon Mar 9 16:50:03 2026 -0700
+
+    NPE Texture block .texture updates (#18058)
+    
+    This PR updates:
+    - get texture is now get textureOutput.
+    - get/set texture that just call sourceTexture to align with texture
+    property in NME.
+    - Updates internal code that was using texture to use textureOutput.
+    
+    This is a public API breaking change.
+
+[33mcommit be2136588fe4350eeeb752ce23cc2c0fa0447463[m
+Author: Raanan Weber <info@raananweber.com>
+Date:   Mon Mar 9 16:16:36 2026 -0700
+
+    Add eslint rule to catch downlevelIteration errors in UMD builds (#18059)
+    
+    Adds a new 'babylonjs/no-downlevel-iteration' eslint rule that flags
+    for...of loops and spread syntax on non-array iterables (Set, Map,
+    generators, etc.) in source files that feed into UMD bundles targeting
+    ES5.
+    
+    Without --downlevelIteration, TypeScript compiles for...of to a
+    .length/[i] loop which silently breaks on non-array iterables. This rule
+    catches those patterns at lint time so developers don't have to wait for
+    the CI UMD build to discover them.
+    
+    The rule uses type information from typescript-eslint to distinguish:
+    - Safe: arrays, tuples, strings, types with numeric index + length
+    (TypedArrays, NodeList)
+    - Unsafe: Set, Map, IterableIterator, generators, custom iterables
+    
+    Applied to packages compiled into UMD ES5: core, gui, loaders,
+    materials, serializers, postProcesses, proceduralTextures, addons.
+
+[33mcommit 1224e9039154543170d79a480ad5c34f2f13816d[m
+Author: Ryan Tremblay <ryan.tremblay@microsoft.com>
+Date:   Mon Mar 9 15:53:03 2026 -0700
+
+    Inspector v2: Fix section flickering when filtering (#18060)
+    
+    In a #17866, `AccordionSection`s became conditional based on whether
+    they are empty. However, the Accordion internally keeps track of
+    "registered sections" (the unique id of sections in the Accordion), and
+    making the sections conditional means they can be removed from that
+    collection. When this happens, we get into an oscillating state where
+    each time the Accordion renders, it goes back and forth between showing
+    and hiding the empty sections, and it looks like it is flickering. The
+    fix here is to not make the sections conditional, but rather just make
+    the styling conditional, such that empty sections are not displayed
+    (though they still exist as children of the Accordion).
+
+[33mcommit a9bff956b743e6acc514a5fad0a61c14984bb705[m
+Author: Ryan Tremblay <ryan.tremblay@microsoft.com>
+Date:   Mon Mar 9 12:26:01 2026 -0700
+
+    Inspector v2: Fix color picker layout bug (#18056)
+    
+    I'm not sure when this regression happened (maybe with the SpinButton
+    rework, or maybe with uniform sizing on input fields in the properties
+    pane, maybe something else), but the Color Picker RGBA and HSV fields
+    are too wide and overlapping each other:
+    
+    <img width="481" height="715" alt="image"
+    src="https://github.com/user-attachments/assets/0e3be63d-b5ce-4098-b471-2694b406cf21"
+    />
+    
+    This PR fixes this regression by moving the min width for the "value"
+    side (e.g. left side label, right side value) of the common
+    PropertyLines to the PropertyLine layer rather than the primitive layer.
+    This way the primitives can be used outside of PropertyLine and
+    naturally have narrower widths. I fixed this for SpinButton and a couple
+    other cases. There are some additional cases that should be fixed, but
+    are a little trickier (like ComboBox due to the way sizing works with
+    the text input area and the drop down button). We can revisit that
+    later.
+    
+    <img width="426" height="728" alt="image"
+    src="https://github.com/user-attachments/assets/c7b1c085-dca8-4042-8cbb-225c0bd973c5"
+    />
+
+[33mcommit ae0ef97eb2ef50a113f8cbbbdba99d1bd2209cf0[m
+Author: Sebastian Gottschlich <108418276+sgottschlich@users.noreply.github.com>
+Date:   Mon Mar 9 18:41:00 2026 +0100
+
+    Fix setAndStartTimer: onAborted and onEnded both firing, missing data arg, onTick on terminal tick (#18051)
+    
+    ## Problem
+    
+    `setAndStartTimer` in `packages/dev/core/src/Misc/timer.ts` has three
+    bugs, all inconsistent with the `AdvancedTimer` class in the same file:
+    
+    ### 1. Both `onAborted` and `onEnded` fire in the same tick
+    
+    When `breakCondition` returns `true` at the same tick that `timer >=
+    timeout`, both callbacks fire. The JSDoc explicitly states:
+    
+    > *"An optional break condition that will stop the times prematurely. In
+    this case **onEnded will not be triggered!**"*
+    
+    **Before:**
+    ```typescript
+    if (options.breakCondition && options.breakCondition()) {
+        options.contextObservable.remove(observer);
+        options.onAborted && options.onAborted(data);
+    }
+    if (timer >= options.timeout) {          // still executes after abort!
+        options.contextObservable.remove(observer);
+        options.onEnded && options.onEnded(data);
+    }
+    ```
+    
+    ### 2. `breakCondition` called without `data`
+    
+    The `data` object is constructed but not passed to `breakCondition()`.
+    `AdvancedTimer` correctly calls `this._breakCondition(data)`.
+    
+    ### 3. `onTick` fires on terminal ticks
+    
+    `onTick` was called before the abort/timeout checks, so it fired even on
+    the tick that ended the timer. `AdvancedTimer` only calls
+    `onEachCountObservable` on intermediate ticks.
+    
+    ## Fix
+    
+    ```typescript
+    if (options.breakCondition && options.breakCondition(data)) {
+        options.contextObservable.remove(observer);
+        options.onAborted && options.onAborted(data);
+        return;  // prevents onEnded from firing
+    }
+    if (timer >= options.timeout) {
+        options.contextObservable.remove(observer);
+        options.onEnded && options.onEnded(data);
+        return;
+    }
+    options.onTick && options.onTick(data);  // only on intermediate ticks
+    ```
+    
+    ## Tests
+    
+    Added `packages/dev/core/test/unit/Misc/babylon.timer.test.ts` with 7
+    tests covering:
+    - Normal timeout → `onEnded` fires, `onAborted` does not
+    - Break condition → `onAborted` fires, `onEnded` does not
+    - Break condition at timeout → only `onAborted` fires (the core bug)
+    - `breakCondition` receives `data`
+    - `onTick` does not fire on the terminal tick
+    - `onTick` fires on intermediate ticks
+    - Observer is removed after timeout (no double-fire)
+    
+    Co-authored-by: Ona <no-reply@ona.com>
+
+[33mcommit 0f83d1f190b7b7478de913b61b0a3d868e8b5cb1[m
+Author: Popov72 <github@evpopov.com>
+Date:   Mon Mar 9 16:49:30 2026 +0100
+
+    WebGPU: Fix implementation of debug markers (#18050)
+    
+    See
+    https://forum.babylonjs.com/t/webgpu-issue-in-mac-chrome-starting-in-v8-54-1/62686
+    
+    #18004 was still bugged, trying a new one with AI help!
+    
+    This time, I added visualization tests for that...
+    
+    I also fixed a bug where shadows were missing when using CSM and lods (I
+    updated the visu test, because the code was broken since 8.16.0, but the
+    visu test didn't catch it).
+
+[33mcommit 16e17fa22267d14618a286bd617938e16418fd0c[m
+Author: kircher1 <20366429+kircher1@users.noreply.github.com>
+Date:   Mon Mar 9 02:15:39 2026 -0700
+
+    Update to latest atmosphere test playgrounds (#18052)
+    
+    Updating playground IDs to fix incorrect variable name. It should not
+    affect visual results.
+
+[33mcommit 43f613dfd938d933e76f597e2eb4e884e9a3f42b[m
+Author: Ryan Tremblay <ryan.tremblay@microsoft.com>
+Date:   Fri Mar 6 22:38:41 2026 -0800
+
+    Inspector v2: GLTF loader optional options (#18048)
+    
+    The gltf loader options tool in the tools pane currently overrides
+    options passed to the gltf loader unconditionally. This isn't what you
+    want in the Playground (or your own app) since your code may be
+    specifying options. This fixes #18042.
+    
+    This PR changes the tool so that the options are all nullable, and null
+    by default. When they are checked (so they are non-null), they get the
+    default value we define in the gltf loader options tool (if defined).
+    Same goes for gltf extensions. This makes it so you can choose which
+    options to explicitly specify and override those coming from load calls
+    made in app code. This replaces PR #18043.
+    
+    <img width="360" height="772" alt="image"
+    src="https://github.com/user-attachments/assets/7768fad9-906c-4e2f-963f-425860868480"
+    />
+    
+    Also included a couple other small fixes in this PR:
+    - The disabled prop was not flowing down into the SpinButton.
+    - There was a regression that broke PropertyLine label truncation.
+
+[33mcommit ae3afd18c546fbe9119d69ca21cb637c3a2ebc3e[m
+Author: Raanan Weber <info@raananweber.com>
+Date:   Fri Mar 6 15:09:11 2026 -0800
+
+    Refactor visualization test configurations (#18046)
+    
+    Engine can now be configured per test and not per project. so flags like
+    "useLargeWorldRendering" or "useReverseDepthBuffer" will work on
+    per-case scenario.
+
+[33mcommit 4a291f5e3e4ca65de0916f5add1886b45816318d[m
+Author: kircher1 <20366429+kircher1@users.noreply.github.com>
+Date:   Fri Mar 6 12:54:31 2026 -0800
+
+    More geo math helpers (#18044)
+    
+    - Defines the WGS84 Ellipsoid via new interface
+    - Adds LatLonAlt -> ECEF conversion
+    - Corresponding unit tests
+
+[33mcommit dc713966655b214429aaa32401cac0bcc0da8a1a[m
+Author: Raanan Weber <info@raananweber.com>
+Date:   Fri Mar 6 11:45:54 2026 -0800
+
+    Upgrade ESLint to 10 (#18025)
+    
+    as part of a long standing major dependencies upgrade, this is the
+    eslint 10 upgrade including changes to files due to eslint 10's strict
+    checking of existing rules.
+    
+    In Draft Mode so to not merge it before 9 is released. The file changes
+    are mostly the rule no unneeded initialization of variables.
+
+[33mcommit 779ad87e2abc1322eb937b8f999faad5bf41f2ae[m
+Author: Ryan Tremblay <ryan.tremblay@microsoft.com>
+Date:   Fri Mar 6 11:34:42 2026 -0800
+
+    Inspector: Use "Unnamed" for unnamed entities in scene explorer (#18045)
+    
+    This addresses two issues:
+    1. If you create an entity (like a `Material`) and don't pass the
+    *required* name (e.g. from JS), then `name` is undefined and it causes
+    an unhandled error in scene explorer. This is a case of incorrectly
+    using the Babylon.js API, but we've found this is a common misuse in
+    Playground, so let's not crash Inspector when it happens.
+    2. If you create an entity with an empty name (`""`), instead of seeing
+    a blank line you will see something like "Unnamed PBRMaterial".
+
+[33mcommit bad14184e4a0bd1503995ae00f5c3fa55558a4fc[m
+Author: Martin Smith <marns@users.noreply.github.com>
+Date:   Fri Mar 6 11:23:28 2026 -0800
+
+    fix: gltf export dropping animations on meshless nodes in right-handed scenes (#18039)
+    
+    Root TransformNodes with identity transforms and no geometry were being
+    removed as "noop" nodes during export, even when targeted by animation
+    groups. This caused animations to silently disappear in right-handed
+    scenes (where these nodes don't carry a handedness-conversion
+    transform).
+    
+    Skip noop removal for any root node that is an animation group target.
+    
+    ## Summary
+    Fix: glTF exporter no longer strips root nodes that are animation group
+    targets during noop node removal
+    In right-handed scenes, meshless root TransformNodes with identity
+    transforms were classified as "noop" and removed, causing their
+    animations to be silently dropped
+    In left-handed scenes this didn't surface because those nodes typically
+    carry a handedness-conversion transform, so they weren't considered noop
+    
+    ## Test plan
+    Added integration test: export an animation group targeting a meshless
+    TransformNode in a right-handed scene, verify the node and animation
+    channel appear in the output
+    Verified test fails without the fix (nodes is undefined) and passes with
+    it
+
+[33mcommit a31dddc38547673325a6a801eeced6fff52101c6[m
+Author: Popov72 <github@evpopov.com>
+Date:   Fri Mar 6 00:53:23 2026 +0100
+
+    Inspector v2: Fix change camera when a frame graph is defined at scene level (#18036)
+    
+    Co-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>
+
+[33mcommit cbdc11f57681beeba0554e5b3e75bbe0be91f831[m
+Author: kircher1 <20366429+kircher1@users.noreply.github.com>
+Date:   Thu Mar 5 13:35:20 2026 -0800
+
+    Scene ready check for atmosphere add-on (#18000)
+    
+    Adds a Scene API to enable objects to plug in to the scene ready check.
+    
+    The atmosphere uses this to ensure EffectWrappers/RenderTargets are
+    created/rendered before isReady() returns true.
+    
+    Allows the visualization tests for atmosphere to remove the increased
+    `renderCount`.
+
+[33mcommit f55c1983b533232840de372fbb3b2446d39f73df[m
+Author: Babylon.js Platform <bot@babylonjs.com>
+Date:   Thu Mar 5 20:39:40 2026 +0000
+
+    Version update 8.54.1
+
+[33mcommit 79634af7fbd7c769269b596ef33573c58753b46b[m
+Author: Babylon.js Platform <bot@babylonjs.com>
+Date:   Thu Mar 5 20:32:30 2026 +0000
+
+    Patch trigger
+
+[33mcommit b5bce93dfd52740413215f2f1ba627a812e5c8f2[m
+Author: Ryan Tremblay <ryan.tremblay@microsoft.com>
+Date:   Thu Mar 5 11:19:06 2026 -0800
+
+    Dump the latest entry in CHANGELOG.md to a release-notes.md file (#18040)
+    
+    This PR includes some small refactors to our scripts that update
+    CHANGELOG.md to dump the notes for the **current** release only into a
+    release-notes.md file. Once this PR is merged, we can disable the
+    autogenerated change log in the build pipeline's GitHub Release action,
+    and instead point to this new release-notes.md file. This way, our
+    releases will show release notes that exactly matches what we add into
+    CHANGELOG.md. Having them be identical is an improvement, but most
+    importantly it should address:
+    
+    -
+    https://forum.babylonjs.com/t/old-issue-referenced-in-latest-release/58999
+    - https://github.com/microsoft/azure-pipelines-tasks/issues/21112
+
+[33mcommit 16dad6eefc33139f0662f05904c1d85070383bb1[m
+Author: Popov72 <github@evpopov.com>
+Date:   Thu Mar 5 19:45:45 2026 +0100
+
+    FrameGraph: miscellaneous fixes (#18037)
+    
+    In this PR:
+    * Fix camera change propagatio

@@ -10,7 +10,7 @@ module.exports = (env) => {
     // eslint-disable-next-line no-console
     console.log(`Building playground in ${production ? "production" : "development"} mode using build id: ${BUILD_ID}`);
     const commonConfig = {
-        entry: "./src/legacy/legacy.ts",
+        entry: "./src/index.tsx",
         ...webpackTools.commonDevWebpackConfiguration(
             {
                 ...env,
@@ -39,7 +39,7 @@ module.exports = (env) => {
             ]
         ),
         resolve: {
-            extensions: [".js", ".ts", ".tsx", ".scss", "*.svg"],
+            extensions: [".js", ".ts", ".tsx", ".scss", ".svg"],
             alias: {
                 "shared-ui-components": path.resolve("../../dev/sharedUiComponents/dist"),
             },
@@ -101,6 +101,14 @@ module.exports = (env) => {
             client: {
                 ...(commonConfig.devServer?.client || {}),
                 overlay: false,
+            },
+            historyApiFallback: {
+                index: 'index.html',
+                rewrites: [
+                    { from: /^\/debug/, to: '/debug.html' },
+                    { from: /^\/frame/, to: '/frame.html' },
+                    { from: /^\/full/, to: '/full.html' },
+                ]
             },
         },
         plugins: [

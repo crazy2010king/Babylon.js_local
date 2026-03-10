@@ -19,6 +19,17 @@ export enum RuntimeMode {
     Frame = 2,
 }
 export class GlobalState {
+    private static _instance: GlobalState;
+    public static get Instance(): GlobalState {
+        if (!GlobalState._instance) {
+            GlobalState._instance = new GlobalState();
+        }
+        return GlobalState._instance;
+    }
+
+    public isInitialized: boolean = false;
+    public filesManager: any = null;
+
     // eslint-disable-next-line @typescript-eslint/naming-convention
     public readonly MobileSizeTrigger = 1024;
     // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -102,4 +113,16 @@ export class GlobalState {
     public loadingCodeInProgress = false;
     public onCodeLoaded = new Observable<string>();
     public doNotRun = false;
+    public readOnlyMode: boolean = false;
+
+    /**
+     * Initialize global state
+     */
+    public initialize(): void {
+        if (this.isInitialized) {
+            return;
+        }
+
+        this.isInitialized = true;
+    }
 }

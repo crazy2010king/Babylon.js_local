@@ -34,6 +34,7 @@
         "react-dom": "^18.2.0",
         "react-refresh": "^0.17.0",
         "react-refresh-typescript": "^2.0.10",
+        "react-router-dom": "^6.20.0",
         "sass-loader": "^16.0.0",
         "style-loader": "^3.3.0",
         "ts-debounce": "4.0.0",
