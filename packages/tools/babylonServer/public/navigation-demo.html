@@ -5,8 +5,8 @@
     <title>Babylon.js 导航寻路演示</title>
     <style>
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
-        #renderCanvas { width: 100%; height: 100%; touch-action: none; }
-        #controls { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 15px; border-radius: 8px; min-width: 280px; max-height: 90vh; overflow-y: auto; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; position: absolute; top: 0; left: 0; z-index: 0; }
+        #controls { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 15px; border-radius: 8px; z-index: 1000; min-width: 280px; max-height: 90vh; overflow-y: auto; }
         .control-group { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #444; }
         label { display: block; margin-bottom: 4px; font-size: 14px; }
         input[type="range"], button { width: 100%; margin-bottom: 8px; }
@@ -57,9 +57,9 @@
         </div>
     </div>
 
-    <script src="/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/recastjs@0.196.0/recast.js"></script>
-    <script src="/packages/dev/addons/public/js/babylon.addons.js"></script>
+    <script src="https://cdn.babylonjs.com/babylon.addons.js"></script>
 
     <script>
         const canvas = document.getElementById("renderCanvas");
