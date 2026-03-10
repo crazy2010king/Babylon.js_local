@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Babylon.js 导航寻路演示</title>
+    <style>
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+        #controls { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 15px; border-radius: 8px; min-width: 280px; max-height: 90vh; overflow-y: auto; }
+        .control-group { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #444; }
+        label { display: block; margin-bottom: 4px; font-size: 14px; }
+        input[type="range"], button { width: 100%; margin-bottom: 8px; }
+        button { background: #00bcd4; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0097a7; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .value-display { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+        .mode-switch { display: flex; gap: 8px; margin-bottom: 10px; }
+        .mode-switch button { flex: 1; }
+        .mode-switch button.active { background: #4caf50; }
+        h3 { margin: 0 0 15px 0; color: #00bcd4; }
+        .info { font-size: 12px; color: #ccc; margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="controls">
+        <h3>🧭 导航寻路演示</h3>
+
+        <div class="mode-switch">
+            <button id="singleMode" class="active">单人寻路</button>
+            <button id="crowdMode">群体寻路</button>
+        </div>
+
+        <div class="control-group">
+            <button id="generateNavMesh">🔄 生成导航网格</button>
+            <button id="clearPaths">🧹 清除所有路径</button>
+            <button id="addObstacle">➕ 添加随机障碍物</button>
+        </div>
+
+        <div class="control-group">
+            <label for="agentCount">群体数量</label>
+            <input type="range" id="agentCount" min="2" max="20" step="1" value="5">
+            <div class="value-display" id="agentCountValue">5 个角色</div>
+        </div>
+
+        <div class="control-group">
+            <label for="agentSpeed">移动速度</label>
+            <input type="range" id="agentSpeed" min="1" max="10" step="0.5" value="3">
+            <div class="value-display" id="agentSpeedValue">3.0</div>
+        </div>
+
+        <div class="info">
+            💡 操作说明：<br>
+            - 左键点击地面，角色会自动寻路到目标点<br>
+            - 红色球体是角色，蓝色线条是寻路路径<br>
+            - 灰色方块是障碍物，角色会自动避让
+        </div>
+    </div>
+
+    <script src="/babylon.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/recastjs@0.196.0/recast.js"></script>
+    <script src="/packages/dev/addons/public/js/babylon.addons.js"></script>
+
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        let scene, camera, navigationPlugin, crowd;
+        let ground, agents = [], paths = [], obstacles = [];
+        let currentMode = 'single';
+        let navMeshGenerated = false;
+
+        const createScene = async () => {
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.02, 0.1, 0.1, 1);
+
+            // 相机
+            camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 30, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 10;
+            camera.upperRadiusLimit = 100;
+
+            // 灯光
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            const directionalLight = new BABYLON.DirectionalLight("directionalLight", new BABYLON.Vector3(-1, -2, -1), scene);
+            directionalLight.intensity = 1;
+
+            // 地面
+            ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 100, height: 100, subdivisions: 50}, scene);
+            const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+            groundMat.diffuseColor = new BABYLON.Color3(0.1, 0.3, 0.2);
+            ground.material = groundMat;
+
+            // 创建初始障碍物
+            createObstacles();
+
+            // 初始化导航插件
+            await initNavigation();
+
+            // 创建初始角色
+            createAgents(1);
+
+            // 绑定点击事件
+            canvas.addEventListener("pointerdown", (evt) => {
+                if (!navMeshGenerated) return;
+
+                const pickInfo = scene.pick(scene.pointerX, scene.pointerY);
+                if (pickInfo.hit && pickInfo.pickedMesh === ground) {
+                    const target = pickInfo.pickedPoint;
+                    moveAgentsTo(target);
+                }
+            });
+
+            // 绑定控件
+            bindControls();
+
+            return scene;
+        };
+
+        async function initNavigation() {
+            // 加载RecastJS
+            const recast = await Recast();
+            navigationPlugin = new BABYLON.RecastJSPlugin(recast);
+
+            // 导航网格参数
+            const navMeshParameters = {
+                cs: 0.2, // 单元格大小
+                ch: 0.1, // 单元格高度
+                walkableSlopeAngle: 30, // 可行走坡度
+                walkableHeight: 2, // 可行走高度
+                walkableClimb: 1, // 可行走攀爬高度
+                walkableRadius: 0.5, // 代理半径
+                maxEdgeLen: 12, // 最大边缘长度
+                maxSimplificationError: 1.3, // 最大简化误差
+                minRegionArea: 8, // 最小区域面积
+                mergeRegionArea: 20, // 合并区域面积
+                maxVertsPerPoly: 6, // 每个多边形最大顶点数
+                detailSampleDist: 6, // 细节采样距离
+                detailSampleMaxError: 1 // 细节采样最大误差
+            };
+
+            // 创建导航网格
+            navigationPlugin.createNavMesh([ground, ...obstacles], navMeshParameters);
+
+            // 初始化群体系统
+            crowd = navigationPlugin.createCrowd(20, 0.1, scene);
+            navMeshGenerated = true;
+        }
+
+        function createObstacles() {
+            // 创建几个随机障碍物
+            for (let i = 0; i < 10; i++) {
+                const obstacle = BABYLON.MeshBuilder.CreateBox("obstacle" + i, {
+                    width: Math.random() * 3 + 1,
+                    height: Math.random() * 3 + 1,
+                    depth: Math.random() * 3 + 1
+                }, scene);
+                obstacle.position = new BABYLON.Vector3(
+                    (Math.random() - 0.5) * 80,
+                    obstacle.scaling.y / 2,
+                    (Math.random() - 0.5) * 80
+                );
+                const obsMat = new BABYLON.StandardMaterial("obsMat", scene);
+                obsMat.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+                obstacle.material = obsMat;
+                obstacles.push(obstacle);
+            }
+        }
+
+        function createAgents(count) {
+            // 清除现有角色
+            agents.forEach(agent => agent.mesh.dispose());
+            agents = [];
+
+            for (let i = 0; i < count; i++) {
+                const agentMesh = BABYLON.MeshBuilder.CreateSphere("agent" + i, {diameter: 1}, scene);
+                const agentMat = new BABYLON.StandardMaterial("agentMat" + i, scene);
+                agentMat.diffuseColor = new BABYLON.Color3(1, 0.2 + i * 0.1, 0.2);
+                agentMesh.material = agentMat;
+
+                // 随机出生位置
+                const position = new BABYLON.Vector3(
+                    (Math.random() - 0.5) * 20,
+                    0.5,
+                    (Math.random() - 0.5) * 20
+                );
+                agentMesh.position = position;
+
+                // 添加到群体系统
+                const agentIndex = crowd.addAgent(position, {
+                    radius: 0.5,
+                    height: 2,
+                    maxAcceleration: 10,
+                    maxSpeed: 3,
+                    collisionQueryRange: 5,
+                    pathOptimizationRange: 10,
+                    separationWeight: 1
+                });
+
+                agents.push({
+                    mesh: agentMesh,
+                    index: agentIndex,
+                    path: null
+                });
+            }
+        }
+
+        function moveAgentsTo(target) {
+            // 清除旧路径
+            paths.forEach(path => path.dispose());
+            paths = [];
+
+            agents.forEach((agent, index) => {
+                // 计算偏移目标，避免所有角色走到同一个点
+                let offsetTarget = target.clone();
+                if (currentMode === 'crowd') {
+                    offsetTarget.x += (Math.random() - 0.5) * 3;
+                    offsetTarget.z += (Math.random() - 0.5) * 3;
+                }
+
+                // 让角色移动到目标
+                crowd.agentGoto(agent.index, navigationPlugin.getClosestPoint(offsetTarget));
+
+                // 计算并显示路径
+                const path = navigationPlugin.computePath(agent.mesh.position, offsetTarget);
+                if (path.length > 1) {
+                    const pathLine = BABYLON.MeshBuilder.CreateLines("path" + index, {points: path, updatable: true}, scene);
+                    pathLine.color = new BABYLON.Color3(0.2, 0.5, 1);
+                    paths.push(pathLine);
+                }
+            });
+        }
+
+        function bindControls() {
+            // 模式切换
+            document.getElementById('singleMode').addEventListener('click', () => {
+                currentMode = 'single';
+                document.getElementById('singleMode').classList.add('active');
+                document.getElementById('crowdMode').classList.remove('active');
+                createAgents(1);
+            });
+
+            document.getElementById('crowdMode').addEventListener('click', () => {
+                currentMode = 'crowd';
+                document.getElementById('crowdMode').classList.add('active');
+                document.getElementById('singleMode').classList.remove('active');
+                const count = parseInt(document.getElementById('agentCount').value);
+                createAgents(count);
+            });
+
+            // 生成导航网格
+            document.getElementById('generateNavMesh').addEventListener('click', async () => {
+                navMeshGenerated = false;
+                await initNavigation();
+                alert('导航网格生成完成！');
+            });
+
+            // 清除路径
+            document.getElementById('clearPaths').addEventListener('click', () => {
+                paths.forEach(path => path.dispose());
+                paths = [];
+                agents.forEach(agent => {
+                    crowd.agentTeleport(agent.index, agent.mesh.position);
+                });
+            });
+
+            // 添加障碍物
+            document.getElementById('addObstacle').addEventListener('click', () => {
+                const obstacle = BABYLON.MeshBuilder.CreateBox("obstacle" + obstacles.length, {
+                    width: Math.random() * 3 + 1,
+                    height: Math.random() * 3 + 1,
+                    depth: Math.random() * 3 + 1
+                }, scene);
+                obstacle.position = new BABYLON.Vector3(
+                    (Math.random() - 0.5) * 80,
+                    obstacle.scaling.y / 2,
+                    (Math.random() - 0.5) * 80
+                );
+                const obsMat = new BABYLON.StandardMaterial("obsMat", scene);
+                obsMat.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+                obstacle.material = obsMat;
+                obstacles.push(obstacle);
+            });
+
+            // 群体数量
+            document.getElementById('agentCount').addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                document.getElementById('agentCountValue').textContent = value + ' 个角色';
+                if (currentMode === 'crowd') {
+                    createAgents(value);
+                }
+            });
+
+            // 移动速度
+            document.getElementById('agentSpeed').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('agentSpeedValue').textContent = value.toFixed(1);
+                agents.forEach(agent => {
+                    crowd.updateAgentParameters(agent.index, {maxSpeed: value});
+                });
+            });
+        }
+
+        // 更新角色位置
+        scene?.onBeforeRenderObservable.add(() => {
+            if (navMeshGenerated && agents.length > 0) {
+                agents.forEach(agent => {
+                    const agentPosition = crowd.getAgentPosition(agent.index);
+                    if (agentPosition) {
+                        agent.mesh.position = agentPosition;
+                    }
+                });
+            }
+        });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+
+            window.addEventListener('resize', () => {
+                engine.resize();
+            });
+        });
+    </script>
+</body>
+</html>

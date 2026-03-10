@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Babylon.js 后处理效果演示</title>
+    <style>
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+        #controls { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 15px; border-radius: 8px; min-width: 280px; max-height: 90vh; overflow-y: auto; }
+        .control-group { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #444; }
+        label { display: block; margin-bottom: 4px; font-size: 14px; }
+        .toggle-switch { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .switch { position: relative; display: inline-block; width: 48px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #2196F3; }
+        input:checked + .slider:before { transform: translateX(24px); }
+        input[type="range"] { width: 100%; margin-bottom: 5px; }
+        .value-display { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+        button { background: #2196F3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 5px 0; width: 100%; }
+        button:hover { background: #1976D2; }
+        h3 { margin: 0 0 15px 0; color: #2196F3; }
+        h4 { margin: 10px 0 5px 0; font-size: 14px; color: #ddd; }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="controls">
+        <h3>🎨 后处理效果演示</h3>
+
+        <button onclick="resetAllEffects()">🔄 重置所有效果</button>
+
+        <!-- Bloom 发光 -->
+        <div class="control-group">
+            <div class="toggle-switch">
+                <label>Bloom 发光效果</label>
+                <label class="switch">
+                    <input type="checkbox" id="bloomEnabled" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <label for="bloomThreshold">发光阈值</label>
+            <input type="range" id="bloomThreshold" min="0" max="1" step="0.01" value="0.8">
+            <div class="value-display" id="bloomThresholdValue">0.8</div>
+
+            <label for="bloomWeight">发光强度</label>
+            <input type="range" id="bloomWeight" min="0" max="2" step="0.1" value="0.8">
+            <div class="value-display" id="bloomWeightValue">0.8</div>
+        </div>
+
+        <!-- 景深 -->
+        <div class="control-group">
+            <div class="toggle-switch">
+                <label>Depth of Field 景深</label>
+                <label class="switch">
+                    <input type="checkbox" id="dofEnabled">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <label for="dofFocusDistance">对焦距离</label>
+            <input type="range" id="dofFocusDistance" min="1" max="50" step="1" value="10">
+            <div class="value-display" id="dofFocusDistanceValue">10</div>
+
+            <label for="dofFStop">光圈大小</label>
+            <input type="range" id="dofFStop" min="1" max="32" step="0.5" value="8">
+            <div class="value-display" id="dofFStopValue">8</div>
+        </div>
+
+        <!-- FXAA 抗锯齿 -->
+        <div class="control-group">
+            <div class="toggle-switch">
+                <label>FXAA 抗锯齿</label>
+                <label class="switch">
+                    <input type="checkbox" id="fxaaEnabled" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- SSAO 环境光遮蔽 -->
+        <div class="control-group">
+            <div class="toggle-switch">
+                <label>SSAO 环境光遮蔽</label>
+                <label class="switch">
+                    <input type="checkbox" id="ssaoEnabled">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <label for="ssaoStrength">遮蔽强度</label>
+            <input type="range" id="ssaoStrength" min="0" max="10" step="0.1" value="2">
+            <div class="value-display" id="ssaoStrengthValue">2</div>
+        </div>
+
+        <!-- 运动模糊 -->
+        <div class="control-group">
+            <div class="toggle-switch">
+                <label>运动模糊</label>
+                <label class="switch">
+                    <input type="checkbox" id="motionBlurEnabled">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <label for="motionBlurStrength">模糊强度</label>
+            <input type="range" id="motionBlurStrength" min="0" max="10" step="0.1" value="2">
+            <div class="value-display" id="motionBlurStrengthValue">2</div>
+        </div>
+
+        <!-- 色彩校正 -->
+        <div class="control-group">
+            <h4>色彩校正</h4>
+            <label for="brightness">亮度</label>
+            <input type="range" id="brightness" min="0" max="2" step="0.05" value="1">
+            <div class="value-display" id="brightnessValue">1.0</div>
+
+            <label for="contrast">对比度</label>
+            <input type="range" id="contrast" min="0" max="2" step="0.05" value="1">
+            <div class="value-display" id="contrastValue">1.0</div>
+
+            <label for="exposure">曝光</label>
+            <input type="range" id="exposure" min="0" max="2" step="0.05" value="1">
+            <div class="value-display" id="exposureValue">1.0</div>
+        </div>
+
+        <!-- 暗角 -->
+        <div class="control-group">
+            <div class="toggle-switch">
+                <label>Vignette 暗角</label>
+                <label class="switch">
+                    <input type="checkbox" id="vignetteEnabled" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <label for="vignetteStrength">暗角强度</label>
+            <input type="range" id="vignetteStrength" min="0" max="1" step="0.01" value="0.3">
+            <div class="value-display" id="vignetteStrengthValue">0.3</div>
+        </div>
+
+        <!-- 胶片颗粒 -->
+        <div class="control-group">
+            <div class="toggle-switch">
+                <label>胶片颗粒</label>
+                <label class="switch">
+                    <input type="checkbox" id="grainEnabled">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <label for="grainIntensity">颗粒强度</label>
+            <input type="range" id="grainIntensity" min="0" max="0.1" step="0.001" value="0.02">
+            <div class="value-display" id="grainIntensityValue">0.02</div>
+        </div>
+    </div>
+
+    <script src="/babylon.js"></script>
+
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        let scene, camera, pipeline;
+        let spheres = [];
+
+        const createScene = async () => {
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.05, 1);
+
+            // 相机
+            camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 20, new BABYLON.Vector3(0, 2, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 5;
+            camera.upperRadiusLimit = 50;
+            camera.fov = 1.2;
+
+            // 灯光
+            const light1 = new BABYLON.PointLight("light1", new BABYLON.Vector3(-10, 5, -10), scene);
+            light1.intensity = 100;
+            light1.diffuse = new BABYLON.Color3(1, 0.4, 0.4);
+
+            const light2 = new BABYLON.PointLight("light2", new BABYLON.Vector3(10, 5, 10), scene);
+            light2.intensity = 100;
+            light2.diffuse = new BABYLON.Color3(0.4, 0.4, 1);
+
+            const hemisphericLight = new BABYLON.HemisphericLight("hemisphericLight", new BABYLON.Vector3(0, 1, 0), scene);
+            hemisphericLight.intensity = 0.3;
+
+            // 地面
+            const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 50, height: 50}, scene);
+            const groundMat = new BABYLON.PBRMetallicRoughnessMaterial("groundMat", scene);
+            groundMat.baseColor = new BABYLON.Color3(0.1, 0.15, 0.2);
+            groundMat.metallic = 0.1;
+            groundMat.roughness = 0.8;
+            ground.material = groundMat;
+
+            // 创建多个发光球体
+            const colors = [
+                new BABYLON.Color3(1, 0, 0),
+                new BABYLON.Color3(0, 1, 0),
+                new BABYLON.Color3(0, 0, 1),
+                new BABYLON.Color3(1, 1, 0),
+                new BABYLON.Color3(1, 0, 1),
+                new BABYLON.Color3(0, 1, 1),
+                new BABYLON.Color3(1, 0.5, 0)
+            ];
+
+            for (let i = 0; i < 20; i++) {
+                const sphere = BABYLON.MeshBuilder.CreateSphere("sphere" + i, {diameter: Math.random() * 2 + 0.5}, scene);
+                sphere.position = new BABYLON.Vector3(
+                    (Math.random() - 0.5) * 30,
+                    Math.random() * 5 + 1,
+                    (Math.random() - 0.5) * 30
+                );
+
+                const mat = new BABYLON.PBRMetallicRoughnessMaterial("mat" + i, scene);
+                mat.baseColor = colors[Math.floor(Math.random() * colors.length)];
+                mat.emissiveColor = mat.baseColor.scale(0.8);
+                mat.metallic = 0.2;
+                mat.roughness = 0.3;
+                sphere.material = mat;
+
+                // 添加旋转动画
+                sphere.angularVelocity = new BABYLON.Vector3(
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2
+                );
+
+                spheres.push(sphere);
+            }
+
+            // 创建默认渲染管线，包含所有后处理效果
+            pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, scene, [camera]);
+            pipeline.samples = 4;
+
+            // 绑定控件事件
+            bindControls();
+
+            // 动画
+            scene.onBeforeRenderObservable.add(() => {
+                spheres.forEach(sphere => {
+                    sphere.rotation.x += sphere.angularVelocity.x * 0.01;
+                    sphere.rotation.y += sphere.angularVelocity.y * 0.01;
+                    sphere.rotation.z += sphere.angularVelocity.z * 0.01;
+                });
+            });
+
+            return scene;
+        };
+
+        function bindControls() {
+            // Bloom
+            document.getElementById('bloomEnabled').addEventListener('change', (e) => {
+                pipeline.bloomEnabled = e.target.checked;
+            });
+            document.getElementById('bloomThreshold').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pipeline.bloomThreshold = value;
+                document.getElementById('bloomThresholdValue').textContent = value;
+            });
+            document.getElementById('bloomWeight').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pipeline.bloomWeight = value;
+                document.getElementById('bloomWeightValue').textContent = value;
+            });
+
+            // DOF
+            document.getElementById('dofEnabled').addEventListener('change', (e) => {
+                pipeline.depthOfFieldEnabled = e.target.checked;
+            });
+            document.getElementById('dofFocusDistance').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pipeline.depthOfField.focusDistance = value;
+                document.getElementById('dofFocusDistanceValue').textContent = value;
+            });
+            document.getElementById('dofFStop').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pipeline.depthOfField.fStop = value;
+                document.getElementById('dofFStopValue').textContent = value;
+            });
+
+            // FXAA
+            document.getElementById('fxaaEnabled').addEventListener('change', (e) => {
+                pipeline.fxaaEnabled = e.target.checked;
+            });
+
+            // SSAO
+            document.getElementById('ssaoEnabled').addEventListener('change', (e) => {
+                pipeline.screenSpaceAmbientOcclusionEnabled = e.target.checked;
+            });
+            document.getElementById('ssaoStrength').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pipeline.screenSpaceAmbientOcclusion.force = value;
+                document.getElementById('ssaoStrengthValue').textContent = value;
+            });
+
+            // 运动模糊
+            document.getElementById('motionBlurEnabled').addEventListener('change', (e) => {
+                pipeline.motionBlurEnabled = e.target.checked;
+            });
+            document.getElementById('motionBlurStrength').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pipeline.motionBlur.motionStrength = value;
+                document.getElementById('motionBlurStrengthValue').textContent = value;
+            });
+
+            // 色彩校正
+            document.getElementById('brightness').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pipeline.imageProcessing.brightness = value;
+                document.getElementById('brightnessValue').textContent = value.toFixed(1);
+            });
+            document.getElementById('contrast').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pipeline.imageProcessing.contrast = value;
+                document.getElementById('contrastValue').textContent = value.toFixed(1);
+            });
+            document.getElementById('exposure').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pipeline.imageProcessing.exposure = value;
+                document.getElementById('exposureValue').textContent = value.toFixed(1);
+            });
+
+            // 暗角
+            document.getElementById('vignetteEnabled').addEventListener('change', (e) => {
+                pipeline.vignetteEnabled = e.target.checked;
+            });
+            document.getElementById('vignetteStrength').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pipeline.vignetteWeight = value;
+                document.getElementById('vignetteStrengthValue').textContent = value;
+            });
+
+            // 胶片颗粒
+            document.getElementById('grainEnabled').addEventListener('change', (e) => {
+                pipeline.grainEnabled = e.target.checked;
+            });
+            document.getElementById('grainIntensity').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                pipeline.grain.animated = true;
+                pipeline.grain.intensity = value;
+                document.getElementById('grainIntensityValue').textContent = value.toFixed(3);
+            });
+        }
+
+        function resetAllEffects() {
+            // 重置所有效果到默认值
+            pipeline.bloomEnabled = true;
+            pipeline.bloomThreshold = 0.8;
+            pipeline.bloomWeight = 0.8;
+
+            pipeline.depthOfFieldEnabled = false;
+            pipeline.depthOfField.focusDistance = 10;
+            pipeline.depthOfField.fStop = 8;
+
+            pipeline.fxaaEnabled = true;
+            pipeline.screenSpaceAmbientOcclusionEnabled = false;
+            pipeline.screenSpaceAmbientOcclusion.force = 2;
+
+            pipeline.motionBlurEnabled = false;
+            pipeline.motionBlur.motionStrength = 2;
+
+            pipeline.imageProcessing.brightness = 1;
+            pipeline.imageProcessing.contrast = 1;
+            pipeline.imageProcessing.exposure = 1;
+
+            pipeline.vignetteEnabled = true;
+            pipeline.vignetteWeight = 0.3;
+
+            pipeline.grainEnabled = false;
+            pipeline.grain.intensity = 0.02;
+
+            // 更新所有控件
+            document.querySelectorAll('input[type="checkbox"]').forEach((input, index) => {
+                input.checked = [true, false, true, false, false, true, false][index];
+            });
+
+            document.querySelectorAll('input[type="range"]').forEach(input => {
+                input.value = input.defaultValue;
+                const event = new Event('input');
+                input.dispatchEvent(event);
+            });
+        }
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+
+            window.addEventListener('resize', () => {
+                engine.resize();
+            });
+        });
+    </script>
+</body>
+</html>

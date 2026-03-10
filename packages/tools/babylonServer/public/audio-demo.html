@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Babylon.js 音频系统演示</title>
+    <style>
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+        #controls { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 15px; border-radius: 8px; min-width: 280px; max-height: 90vh; overflow-y: auto; }
+        .control-group { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #444; }
+        label { display: block; margin-bottom: 4px; font-size: 14px; }
+        select, input[type="range"], input[type="checkbox"] { margin-bottom: 5px; }
+        input[type="range"] { width: 100%; }
+        .value-display { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+        button { background: #ff5722; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; margin-bottom: 15px; width: 100%; }
+        button:hover { background: #e64a19; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .toggle-switch { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+        .switch { position: relative; display: inline-block; width: 48px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #ff5722; }
+        input:checked + .slider:before { transform: translateX(24px); }
+        h3 { margin: 0 0 15px 0; color: #ff5722; }
+        h4 { margin: 10px 0 5px 0; font-size: 14px; color: #ddd; }
+        #spectrum { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 80%; height: 150px; background: rgba(0,0,0,0.7); border-radius: 8px; display: flex; align-items: flex-end; justify-content: space-around; padding: 10px; }
+        .spectrum-bar { width: 8px; background: linear-gradient(to top, #ff5722, #ffc107); border-radius: 4px 4px 0 0; transition: height 0.1s ease; }
+        .audio-info { font-size: 12px; color: #ccc; margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="controls">
+        <h3>🔊 音频系统演示</h3>
+
+        <button id="startAudioBtn">🎵 点击启动音频</button>
+
+        <div class="control-group">
+            <div class="toggle-switch">
+                <label>空间音频 (3D音效)</label>
+                <label class="switch">
+                    <input type="checkbox" id="spatialAudioEnabled" checked disabled>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-switch">
+                <label>频谱可视化</label>
+                <label class="switch">
+                    <input type="checkbox" id="spectrumEnabled" checked disabled>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h4>音频控制</h4>
+            <label for="volume">音量</label>
+            <input type="range" id="volume" min="0" max="1" step="0.01" value="0.5" disabled>
+            <div class="value-display" id="volumeValue">50%</div>
+
+            <label for="playbackRate">播放速度</label>
+            <input type="range" id="playbackRate" min="0.5" max="2" step="0.1" value="1" disabled>
+            <div class="value-display" id="playbackRateValue">1.0x</div>
+        </div>
+
+        <div class="control-group">
+            <h4>3D音频设置</h4>
+            <label for="maxDistance">最大可听距离</label>
+            <input type="range" id="maxDistance" min="10" max="100" step="1" value="50" disabled>
+            <div class="value-display" id="maxDistanceValue">50</div>
+
+            <label for="rolloffFactor">衰减系数</label>
+            <input type="range" id="rolloffFactor" min="0" max="5" step="0.1" value="1" disabled>
+            <div class="value-display" id="rolloffFactorValue">1.0</div>
+        </div>
+
+        <div class="audio-info">
+            💡 操作提示：<br>
+            - 相机是听者位置，红色球体是音源<br>
+            - 拖动相机移动，感受声音大小和方向变化<br>
+            - 空间音频会根据位置和方向自动调整音效
+        </div>
+    </div>
+
+    <div id="spectrum" style="display: none;"></div>
+
+    <script src="/babylon.js"></script>
+
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        let scene, camera, sound, audioEngine, analyser;
+        let soundSource, spectrumBars = [];
+        let audioInitialized = false;
+        const FFT_SIZE = 64;
+
+        const createScene = async () => {
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.05, 0.05, 0.1, 1);
+
+            // 相机（听者）
+            camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 20, new BABYLON.Vector3(0, 2, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 5;
+            camera.upperRadiusLimit = 100;
+
+            // 灯光
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            // 地面
+            const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 200, height: 200}, scene);
+            const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+            groundMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.2);
+            ground.material = groundMat;
+
+            // 网格辅助线
+            const grid = new BABYLON.GridMaterial("grid", scene);
+            grid.majorUnitFrequency = 5;
+            grid.minorUnitVisibility = 0.3;
+            grid.gridRatio = 2;
+            grid.backFaceCulling = false;
+            grid.mainColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+            grid.lineColor = new BABYLON.Color3(0.5, 0.5, 0.5);
+            grid.opacity = 0.9;
+            ground.material = grid;
+
+            // 音源球体
+            soundSource = BABYLON.MeshBuilder.CreateSphere("soundSource", {diameter: 1}, scene);
+            soundSource.position = new BABYLON.Vector3(10, 2, 0);
+            const sourceMat = new BABYLON.StandardMaterial("sourceMat", scene);
+            sourceMat.emissiveColor = new BABYLON.Color3(1, 0.2, 0.2);
+            sourceMat.diffuseColor = new BABYLON.Color3(1, 0, 0);
+            soundSource.material = sourceMat;
+
+            // 音源动画
+            let angle = 0;
+            scene.onBeforeRenderObservable.add(() => {
+                angle += 0.005;
+                soundSource.position.x = Math.cos(angle) * 10;
+                soundSource.position.z = Math.sin(angle) * 10;
+
+                // 更新频谱
+                if (audioInitialized && analyser && document.getElementById('spectrumEnabled').checked) {
+                    const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(frequencyData);
+
+                    for (let i = 0; i < spectrumBars.length; i++) {
+                        const value = frequencyData[i] || 0;
+                        const height = (value / 255) * 150;
+                        spectrumBars[i].style.height = `${height}px`;
+                    }
+                }
+            });
+
+            // 创建频谱柱状图
+            const spectrumContainer = document.getElementById('spectrum');
+            for (let i = 0; i < FFT_SIZE / 2; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'spectrum-bar';
+                spectrumContainer.appendChild(bar);
+                spectrumBars.push(bar);
+            }
+
+            // 绑定控件事件
+            bindControls();
+
+            return scene;
+        };
+
+        function bindControls() {
+            // 启动音频按钮
+            document.getElementById('startAudioBtn').addEventListener('click', async () => {
+                if (!audioInitialized) {
+                    await initAudio();
+                    audioInitialized = true;
+                    document.getElementById('startAudioBtn').textContent = "✅ 音频已启动";
+                    document.getElementById('startAudioBtn').disabled = true;
+
+                    // 启用所有控件
+                    document.querySelectorAll('input, select').forEach(el => el.disabled = false);
+                    document.getElementById('spectrum').style.display = 'flex';
+                }
+            });
+
+            // 空间音频开关
+            document.getElementById('spatialAudioEnabled').addEventListener('change', (e) => {
+                if (sound) {
+                    sound.spatialSound = e.target.checked;
+                }
+            });
+
+            // 频谱开关
+            document.getElementById('spectrumEnabled').addEventListener('change', (e) => {
+                document.getElementById('spectrum').style.display = e.target.checked ? 'flex' : 'none';
+            });
+
+            // 音量
+            document.getElementById('volume').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('volumeValue').textContent = Math.round(value * 100) + '%';
+                if (sound) {
+                    sound.setVolume(value);
+                }
+            });
+
+            // 播放速度
+            document.getElementById('playbackRate').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('playbackRateValue').textContent = value.toFixed(1) + 'x';
+                if (sound) {
+                    sound.playbackRate = value;
+                }
+            });
+
+            // 最大距离
+            document.getElementById('maxDistance').addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                document.getElementById('maxDistanceValue').textContent = value;
+                if (sound) {
+                    sound.maxDistance = value;
+                }
+            });
+
+            // 衰减系数
+            document.getElementById('rolloffFactor').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('rolloffFactorValue').textContent = value.toFixed(1);
+                if (sound) {
+                    sound.rolloffFactor = value;
+                }
+            });
+        }
+
+        async function initAudio() {
+            // 初始化音频引擎
+            audioEngine = new BABYLON.AudioEngine();
+            audioEngine.useCustomAudioContext = true;
+
+            // 创建音频分析器
+            const audioContext = audioEngine.audioContext;
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = FFT_SIZE;
+
+            // 加载音频文件 - 使用免费的背景音乐
+            sound = new BABYLON.Sound("music", "https://www.babylonjs-playground.com/sounds/Theme.mp3", scene, () => {
+                sound.play();
+                sound.loop = true;
+                sound.spatialSound = true;
+                sound.attachToMesh(soundSource);
+
+                // 连接分析器
+                sound._soundSource.connect(analyser);
+                analyser.connect(audioContext.destination);
+            }, {
+                volume: 0.5,
+                maxDistance: 50,
+                rolloffFactor: 1
+            });
+        }
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+
+            window.addEventListener('resize', () => {
+                engine.resize();
+            });
+        });
+    </script>
+</body>
+</html>

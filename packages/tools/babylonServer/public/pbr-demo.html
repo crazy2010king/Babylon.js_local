@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Babylon.js PBR材质演示</title>
+    <style>
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+        #controls { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 15px; border-radius: 8px; min-width: 280px; max-height: 90vh; overflow-y: auto; }
+        .control-group { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #444; }
+        label { display: block; margin-bottom: 4px; font-size: 14px; }
+        select, input[type="range"], input[type="color"] { width: 100%; margin-bottom: 5px; }
+        .value-display { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+        .preset-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px; }
+        button { background: #9c27b0; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        button:hover { background: #7b1fa2; }
+        h3 { margin: 0 0 15px 0; color: #9c27b0; }
+        h4 { margin: 10px 0 5px 0; font-size: 14px; color: #ddd; }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="controls">
+        <h3>🎨 PBR材质演示</h3>
+
+        <h4>材质预设</h4>
+        <div class="preset-buttons">
+            <button onclick="setPreset('iron')">⚙️ 铁</button>
+            <button onclick="setPreset('copper')">🥉 铜</button>
+            <button onclick="setPreset('gold')">🥇 金</button>
+            <button onclick="setPreset('aluminum')">🥈 铝</button>
+            <button onclick="setPreset('plastic')">🧩 塑料</button>
+            <button onclick="setPreset('glass')">🔍 玻璃</button>
+            <button onclick="setPreset('leather')">👞 皮革</button>
+            <button onclick="setPreset('fabric')">🧶 布料</button>
+            <button onclick="setPreset('rubber')">⚽ 橡胶</button>
+            <button onclick="setPreset('carpaint')">🚗 车漆</button>
+        </div>
+
+        <!-- 环境设置 -->
+        <div class="control-group">
+            <h4>环境设置</h4>
+            <label for="environment">环境贴图</label>
+            <select id="environment">
+                <option value="city">城市</option>
+                <option value="sunset">日落</option>
+                <option value="forest">森林</option>
+                <option value="studio">摄影棚</option>
+            </select>
+
+            <label for="environmentIntensity">环境强度</label>
+            <input type="range" id="environmentIntensity" min="0" max="3" step="0.1" value="1">
+            <div class="value-display" id="environmentIntensityValue">1.0</div>
+        </div>
+
+        <!-- 材质参数 -->
+        <div class="control-group">
+            <h4>基础参数</h4>
+            <label for="baseColor">基础颜色</label>
+            <input type="color" id="baseColor" value="#b87333">
+
+            <label for="metallic">金属度</label>
+            <input type="range" id="metallic" min="0" max="1" step="0.01" value="1">
+            <div class="value-display" id="metallicValue">1.0</div>
+
+            <label for="roughness">粗糙度</label>
+            <input type="range" id="roughness" min="0" max="1" step="0.01" value="0.3">
+            <div class="value-display" id="roughnessValue">0.3</div>
+        </div>
+
+        <!-- 高级参数 -->
+        <div class="control-group">
+            <h4>高级参数</h4>
+            <label for="opacity">透明度</label>
+            <input type="range" id="opacity" min="0" max="1" step="0.01" value="1">
+            <div class="value-display" id="opacityValue">1.0</div>
+
+            <label for="reflectivity">反射率</label>
+            <input type="range" id="reflectivity" min="0" max="1" step="0.01" value="0.5">
+            <div class="value-display" id="reflectivityValue">0.5</div>
+
+            <label for="clearCoat">清漆层</label>
+            <input type="range" id="clearCoat" min="0" max="1" step="0.01" value="0">
+            <div class="value-display" id="clearCoatValue">0.0</div>
+
+            <label for="clearCoatRoughness">清漆粗糙度</label>
+            <input type="range" id="clearCoatRoughness" min="0" max="1" step="0.01" value="0">
+            <div class="value-display" id="clearCoatRoughnessValue">0.0</div>
+        </div>
+    </div>
+
+    <script src="/babylon.js"></script>
+    <script src="https://raw.githubusercontent.com/BabylonJS/Babylon.js/master/packages/dev/loaders/dist/babylon.glTF2FileLoader.js"></script>
+
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        let scene, camera, material, mesh, hdrTexture;
+
+        const createScene = async () => {
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.15, 1);
+
+            // 相机
+            camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 3, new BABYLON.Vector3(0, 0, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 2;
+            camera.upperRadiusLimit = 10;
+
+            // 灯光
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.3;
+
+            const directionalLight = new BABYLON.DirectionalLight("directionalLight", new BABYLON.Vector3(-1, -2, -1), scene);
+            directionalLight.intensity = 1;
+
+            // 环境贴图
+            hdrTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("https://assets.babylonjs.com/environments/environmentSpecular.env", scene);
+            scene.environmentTexture = hdrTexture;
+            scene.environmentIntensity = 1;
+
+            // 创建模型
+            mesh = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 2, segments: 64}, scene);
+
+            // 创建PBR材质
+            material = new BABYLON.PBRMetallicRoughnessMaterial("pbr", scene);
+            material.baseColor = new BABYLON.Color3.FromHexString("#b87333"); // 铜色
+            material.metallic = 1;
+            material.roughness = 0.3;
+            material.environmentIntensity = 1;
+
+            mesh.material = material;
+
+            // 旋转动画
+            scene.onBeforeRenderObservable.add(() => {
+                mesh.rotation.y += 0.005;
+            });
+
+            // 绑定控件
+            bindControls();
+
+            // 默认铜材质
+            setPreset('copper');
+
+            return scene;
+        };
+
+        function bindControls() {
+            // 环境
+            document.getElementById('environment').addEventListener('change', (e) => {
+                const env = e.target.value;
+                let url = "https://assets.babylonjs.com/environments/";
+                switch(env) {
+                    case 'city': url += "environmentSpecular.env"; break;
+                    case 'sunset': url += "sunsetSpecular.env"; break;
+                    case 'forest': url += "forestSpecular.env"; break;
+                    case 'studio': url += "studioSoft.env"; break;
+                }
+                hdrTexture = BABYLON.CubeTexture.CreateFromPrefilteredData(url, scene);
+                scene.environmentTexture = hdrTexture;
+            });
+
+            document.getElementById('environmentIntensity').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                scene.environmentIntensity = value;
+                document.getElementById('environmentIntensityValue').textContent = value.toFixed(1);
+            });
+
+            // 基础颜色
+            document.getElementById('baseColor').addEventListener('input', (e) => {
+                material.baseColor = new BABYLON.Color3.FromHexString(e.target.value);
+            });
+
+            // 金属度
+            document.getElementById('metallic').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                material.metallic = value;
+                document.getElementById('metallicValue').textContent = value.toFixed(2);
+            });
+
+            // 粗糙度
+            document.getElementById('roughness').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                material.roughness = value;
+                document.getElementById('roughnessValue').textContent = value.toFixed(2);
+            });
+
+            // 透明度
+            document.getElementById('opacity').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                material.alpha = value;
+                material.transparencyMode = value < 1 ? BABYLON.PBRMaterial.PBRMATERIAL_OPAQUE : BABYLON.PBRMaterial.PBRMATERIAL_ALPHABLEND;
+                document.getElementById('opacityValue').textContent = value.toFixed(2);
+            });
+
+            // 反射率
+            document.getElementById('reflectivity').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                material.reflectivity = new BABYLON.Color3(value, value, value);
+                document.getElementById('reflectivityValue').textContent = value.toFixed(2);
+            });
+
+            // 清漆层
+            document.getElementById('clearCoat').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                material.clearCoat.isEnabled = value > 0;
+                material.clearCoat.intensity = value;
+                document.getElementById('clearCoatValue').textContent = value.toFixed(2);
+            });
+
+            // 清漆粗糙度
+            document.getElementById('clearCoatRoughness').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                material.clearCoat.roughness = value;
+                document.getElementById('clearCoatRoughnessValue').textContent = value.toFixed(2);
+            });
+        }
+
+        function setPreset(preset) {
+            switch(preset) {
+                case 'iron':
+                    material.baseColor = new BABYLON.Color3.FromHexString("#71797E");
+                    material.metallic = 1;
+                    material.roughness = 0.4;
+                    material.alpha = 1;
+                    material.clearCoat.isEnabled = false;
+                    break;
+
+                case 'copper':
+                    material.baseColor = new BABYLON.Color3.FromHexString("#b87333");
+                    material.metallic = 1;
+                    material.roughness = 0.3;
+                    material.alpha = 1;
+                    material.clearCoat.isEnabled = false;
+                    break;
+
+                case 'gold':
+                    material.baseColor = new BABYLON.Color3.FromHexString("#FFD700");
+                    material.metallic = 1;
+                    material.roughness = 0.2;
+                    material.alpha = 1;
+                    material.clearCoat.isEnabled = false;
+                    break;
+
+                case 'aluminum':
+                    material.baseColor = new BABYLON.Color3.FromHexString("#A9A9A9");
+                    material.metallic = 1;
+                    material.roughness = 0.25;
+                    material.alpha = 1;
+                    material.clearCoat.isEnabled = false;
+                    break;
+
+                case 'plastic':
+                    material.baseColor = new BABYLON.Color3.FromHexString("#2196F3");
+                    material.metallic = 0;
+                    material.roughness = 0.5;
+                    material.alpha = 1;
+                    material.clearCoat.isEnabled = false;
+                    break;
+
+                case 'glass':
+                    material.baseColor = new BABYLON.Color3.FromHexString("#E3F2FD");
+                    material.metallic = 0;
+                    material.roughness = 0;
+                    material.alpha = 0.3;
+                    material.clearCoat.isEnabled = true;
+                    material.clearCoat.intensity = 1;
+                    material.clearCoat.roughness = 0;
+                    break;
+
+                case 'leather':
+                    material.baseColor = new BABYLON.Color3.FromHexString("#8B4513");
+                    material.metallic = 0;
+                    material.roughness = 0.7;
+                    material.alpha = 1;
+                    material.clearCoat.isEnabled = true;
+                    material.clearCoat.intensity = 0.3;
+                    material.clearCoat.roughness = 0.5;
+                    break;
+
+                case 'fabric':
+                    material.baseColor = new BABYLON.Color3.FromHexString("#4CAF50");
+                    material.metallic = 0;
+                    material.roughness = 0.9;
+                    material.alpha = 1;
+                    material.clearCoat.isEnabled = false;
+                    break;
+
+                case 'rubber':
+                    material.baseColor = new BABYLON.Color3.FromHexString("#212121");
+                    material.metallic = 0;
+                    material.roughness = 0.8;
+                    material.alpha = 1;
+                    material.clearCoat.isEnabled = false;
+                    break;
+
+                case 'carpaint':
+                    material.baseColor = new BABYLON.Color3.FromHexString("#F44336");
+                    material.metallic = 0.9;
+                    material.roughness = 0.2;
+                    material.alpha = 1;
+                    material.clearCoat.isEnabled = true;
+                    material.clearCoat.intensity = 1;
+                    material.clearCoat.roughness = 0.1;
+                    break;
+            }
+
+            // 更新控件显示
+            updateControlsFromMaterial();
+        }
+
+        function updateControlsFromMaterial() {
+            document.getElementById('baseColor').value = material.baseColor.toHexString();
+            document.getElementById('metallic').value = material.metallic;
+            document.getElementById('metallicValue').textContent = material.metallic.toFixed(2);
+            document.getElementById('roughness').value = material.roughness;
+            document.getElementById('roughnessValue').textContent = material.roughness.toFixed(2);
+            document.getElementById('opacity').value = material.alpha;
+            document.getElementById('opacityValue').textContent = material.alpha.toFixed(2);
+            document.getElementById('clearCoat').value = material.clearCoat.intensity;
+            document.getElementById('clearCoatValue').textContent = material.clearCoat.intensity.toFixed(2);
+            document.getElementById('clearCoatRoughness').value = material.clearCoat.roughness;
+            document.getElementById('clearCoatRoughnessValue').textContent = material.clearCoat.roughness.toFixed(2);
+        }
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+
+            window.addEventListener('resize', () => {
+                engine.resize();
+            });
+        });
+    </script>
+</body>
+</html>

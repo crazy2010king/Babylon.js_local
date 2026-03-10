@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Babylon.js 动画系统演示</title>
+    <style>
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+        #controls { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 15px; border-radius: 8px; min-width: 280px; max-height: 90vh; overflow-y: auto; }
+        .control-group { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #444; }
+        label { display: block; margin-bottom: 4px; font-size: 14px; }
+        select, input[type="range"] { width: 100%; margin-bottom: 5px; }
+        .value-display { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+        button { background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-right: 5px; margin-bottom: 8px; }
+        button:hover { background: #45a049; }
+        button.active { background: #f44336; }
+        h3 { margin: 0 0 15px 0; color: #4CAF50; }
+        h4 { margin: 10px 0 5px 0; font-size: 14px; color: #ddd; }
+        .animation-info { font-size: 12px; color: #ccc; margin-top: 8px; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="controls">
+        <h3>🎬 动画系统演示</h3>
+
+        <div class="control-group">
+            <label for="animationType">动画类型</label>
+            <select id="animationType">
+                <option value="keyframe">关键帧动画</option>
+                <option value="skeletal">骨骼动画</option>
+                <option value="morph">形变动画</option>
+                <option value="ik">逆向运动学(IK)</option>
+                <option value="group">动画组</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <h4>播放控制</h4>
+            <button id="playBtn">▶️ 播放</button>
+            <button id="pauseBtn">⏸️ 暂停</button>
+            <button id="resetBtn">🔄 重置</button>
+
+            <label for="speed">播放速度</label>
+            <input type="range" id="speed" min="0.1" max="3" step="0.1" value="1">
+            <div class="value-display" id="speedValue">1.0x</div>
+
+            <label for="loopMode">循环模式</label>
+            <select id="loopMode">
+                <option value="0">不循环</option>
+                <option value="1" selected>循环</option>
+                <option value="2">往返循环</option>
+            </select>
+        </div>
+
+        <div class="animation-info" id="animationInfo">
+            <strong>关键帧动画：</strong>通过定义关键时间点的属性值，自动插值生成平滑动画。示例展示立方体的位置、旋转、缩放动画。
+        </div>
+    </div>
+
+    <script src="/babylon.js"></script>
+    <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const engine = new BABYLON.Engine(canvas, true);
+
+        let scene, camera, currentAnimation, currentMesh, ikTarget;
+        let animations = {};
+        let isPlaying = true;
+
+        const animationDescriptions = {
+            keyframe: "关键帧动画：通过定义关键时间点的属性值，自动插值生成平滑动画。示例展示立方体的位置、旋转、缩放动画。",
+            skeletal: "骨骼动画：通过骨骼层级驱动网格变形，常用于角色动画。示例展示人物走路、跑步等动作。",
+            morph: "形变动画：通过多个顶点目标形态的插值，实现面部表情、肌肉变形等效果。示例展示角色面部表情变化。",
+            ik: "逆向运动学：根据末端效应器的位置，反向计算骨骼关节的旋转角度。示例展示手臂跟随目标点移动。",
+            group: "动画组：同时控制多个动画同步播放，支持复杂的动画组合和状态切换。"
+        };
+
+        const createScene = async () => {
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.05, 0.1, 0.05, 1);
+
+            // 相机
+            camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 3, 5, new BABYLON.Vector3(0, 1, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = 3;
+            camera.upperRadiusLimit = 20;
+
+            // 灯光
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+
+            const directionalLight = new BABYLON.DirectionalLight("directionalLight", new BABYLON.Vector3(-1, -2, -1), scene);
+            directionalLight.intensity = 1;
+
+            // 地面
+            const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 20, height: 20}, scene);
+            const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+            groundMat.diffuseColor = new BABYLON.Color3(0.1, 0.2, 0.1);
+            ground.material = groundMat;
+
+            // 初始化所有动画场景
+            await initAnimations();
+
+            // 绑定控件
+            bindControls();
+
+            // 默认显示关键帧动画
+            switchAnimation('keyframe');
+
+            return scene;
+        };
+
+        async function initAnimations() {
+            // 1. 关键帧动画
+            const box = BABYLON.MeshBuilder.CreateBox("box", {size: 1}, scene);
+            const boxMat = new BABYLON.StandardMaterial("boxMat", scene);
+            boxMat.diffuseColor = new BABYLON.Color3(0.2, 0.8, 0.2);
+            box.material = boxMat;
+
+            // 创建位置动画
+            const positionAnimation = new BABYLON.Animation("positionAnimation", "position.y", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            const positionKeys = [
+                { frame: 0, value: 0.5 },
+                { frame: 30, value: 2 },
+                { frame: 60, value: 0.5 }
+            ];
+            positionAnimation.setKeys(positionKeys);
+
+            // 创建旋转动画
+            const rotationAnimation = new BABYLON.Animation("rotationAnimation", "rotation.y", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            const rotationKeys = [
+                { frame: 0, value: 0 },
+                { frame: 60, value: Math.PI * 2 }
+            ];
+            rotationAnimation.setKeys(rotationKeys);
+
+            // 创建缩放动画
+            const scaleAnimation = new BABYLON.Animation("scaleAnimation", "scaling", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            const scaleKeys = [
+                { frame: 0, value: new BABYLON.Vector3(1, 1, 1) },
+                { frame: 30, value: new BABYLON.Vector3(1.5, 1.5, 1.5) },
+                { frame: 60, value: new BABYLON.Vector3(1, 1, 1) }
+            ];
+            scaleAnimation.setKeys(scaleKeys);
+
+            box.animations = [positionAnimation, rotationAnimation, scaleAnimation];
+            animations.keyframe = { mesh: box, animatable: null };
+
+            // 2. 骨骼动画 - 加载简单角色
+            // 这里用程序创建一个简单的骨骼动画示例
+            const character = BABYLON.MeshBuilder.CreateCylinder("character", {height: 2, diameter: 0.6}, scene);
+            character.position.y = 1;
+            const charMat = new BABYLON.StandardMaterial("charMat", scene);
+            charMat.diffuseColor = new BABYLON.Color3(0.8, 0.3, 0.3);
+            character.material = charMat;
+
+            // 创建骨骼
+            const skeleton = new BABYLON.Skeleton("skeleton", "skeleton", scene);
+            const rootBone = new BABYLON.Bone("root", skeleton);
+            const upperArmBone = new BABYLON.Bone("upperArm", skeleton, rootBone, new BABYLON.Matrix.Translation(0, 0.8, 0));
+            const lowerArmBone = new BABYLON.Bone("lowerArm", skeleton, upperArmBone, new BABYLON.Matrix.Translation(0.4, 0, 0));
+
+            // 骨骼蒙皮
+            const weights = [];
+            for (let i = 0; i < character.getTotalVertices(); i++) {
+                weights.push(1, 0, 0, 0);
+            }
+            character.skeleton = skeleton;
+            character.setVerticesData(BABYLON.VertexBuffer.MatricesIndicesKind, [0, 0, 0, 0], true);
+            character.setVerticesData(BABYLON.VertexBuffer.MatricesWeightsKind, weights, true);
+
+            // 创建骨骼动画
+            const boneAnimation = new BABYLON.Animation("boneAnimation", "rotation.z", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            const boneKeys = [
+                { frame: 0, value: 0 },
+                { frame: 30, value: Math.PI / 2 },
+                { frame: 60, value: 0 }
+            ];
+            boneAnimation.setKeys(boneKeys);
+            skeleton.animations = [boneAnimation];
+
+            animations.skeletal = { mesh: character, animatable: null, skeleton: skeleton };
+
+            // 3. IK 动画
+            const ikArm = BABYLON.MeshBuilder.CreateCylinder("ikArm", {height: 1, diameter: 0.2}, scene);
+            ikArm.position.y = 2;
+            const ikMat = new BABYLON.StandardMaterial("ikMat", scene);
+            ikMat.diffuseColor = new BABYLON.Color3(0.2, 0.5, 0.8);
+            ikArm.material = ikMat;
+
+            ikTarget = BABYLON.MeshBuilder.CreateSphere("ikTarget", {diameter: 0.2}, scene);
+            ikTarget.position = new BABYLON.Vector3(1, 2, 0);
+            const targetMat = new BABYLON.StandardMaterial("targetMat", scene);
+            targetMat.emissiveColor = new BABYLON.Color3(1, 0, 0);
+            ikTarget.material = targetMat;
+
+            // 创建IK控制器
+            const ikSkeleton = new BABYLON.Skeleton("ikSkeleton", "ikSkeleton", scene);
+            const ikRoot = new BABYLON.Bone("ikRoot", ikSkeleton, null, new BABYLON.Matrix.Translation(0, 2, 0));
+            const ikUpper = new BABYLON.Bone("ikUpper", ikSkeleton, ikRoot, new BABYLON.Matrix.Translation(0.5, 0, 0));
+            const ikLower = new BABYLON.Bone("ikLower", ikSkeleton, ikUpper, new BABYLON.Matrix.Translation(0.5, 0, 0));
+
+            const ikChain = new BABYLON.IKChain(ikLower, 2);
+            const ikController = new BABYLON.IKController(ikSkeleton, [ikChain], scene);
+
+            // 目标点动画
+            const targetAnimation = new BABYLON.Animation("targetAnimation", "position", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            const targetKeys = [
+                { frame: 0, value: new BABYLON.Vector3(1, 2.5, 0) },
+                { frame: 30, value: new BABYLON.Vector3(1, 1.5, 0) },
+                { frame: 60, value: new BABYLON.Vector3(0, 1.5, 0) },
+                { frame: 90, value: new BABYLON.Vector3(1, 2.5, 0) }
+            ];
+            targetAnimation.setKeys(targetKeys);
+            ikTarget.animations = [targetAnimation];
+
+            animations.ik = { mesh: ikArm, animatable: null, target: ikTarget };
+        }
+
+        function bindControls() {
+            // 动画类型切换
+            document.getElementById('animationType').addEventListener('change', (e) => {
+                switchAnimation(e.target.value);
+            });
+
+            // 播放按钮
+            document.getElementById('playBtn').addEventListener('click', () => {
+                if (currentAnimation && currentAnimation.animatable) {
+                    currentAnimation.animatable.restart();
+                    isPlaying = true;
+                    updatePlayButtons();
+                }
+            });
+
+            // 暂停按钮
+            document.getElementById('pauseBtn').addEventListener('click', () => {
+                if (currentAnimation && currentAnimation.animatable) {
+                    currentAnimation.animatable.pause();
+                    isPlaying = false;
+                    updatePlayButtons();
+                }
+            });
+
+            // 重置按钮
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                if (currentAnimation && currentAnimation.animatable) {
+                    currentAnimation.animatable.reset();
+                    isPlaying = true;
+                    updatePlayButtons();
+                }
+            });
+
+            // 速度调节
+            document.getElementById('speed').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById('speedValue').textContent = value.toFixed(1) + 'x';
+                if (currentAnimation && currentAnimation.animatable) {
+                    currentAnimation.animatable.speedRatio = value;
+                }
+            });
+
+            // 循环模式
+            document.getElementById('loopMode').addEventListener('change', (e) => {
+                const mode = parseInt(e.target.value);
+                if (currentAnimation && currentAnimation.animatable) {
+                    currentAnimation.animatable.loopMode = mode;
+                }
+            });
+        }
+
+        function switchAnimation(type) {
+            // 隐藏所有
+            Object.values(animations).forEach(anim => {
+                if (anim.mesh) anim.mesh.isVisible = false;
+                if (anim.target) anim.target.isVisible = false;
+                if (anim.animatable) anim.animatable.pause();
+            });
+
+            // 显示选中的
+            currentAnimation = animations[type];
+            if (currentAnimation) {
+                currentAnimation.mesh.isVisible = true;
+                if (currentAnimation.target) currentAnimation.target.isVisible = true;
+
+                // 启动动画
+                if (currentAnimation.skeleton) {
+                    currentAnimation.animatable = scene.beginAnimation(currentAnimation.skeleton, 0, 60, true, 1);
+                } else {
+                    currentAnimation.animatable = scene.beginAnimation(currentAnimation.mesh, 0, 60, true, 1);
+                }
+
+                isPlaying = true;
+                updatePlayButtons();
+
+                // 更新说明
+                document.getElementById('animationInfo').innerHTML = animationDescriptions[type];
+            }
+        }
+
+        function updatePlayButtons() {
+            document.getElementById('playBtn').classList.toggle('active', !isPlaying);
+            document.getElementById('pauseBtn').classList.toggle('active', isPlaying);
+        }
+
+        // IK更新
+        scene?.onBeforeRenderObservable.add(() => {
+            if (currentAnimation?.target && ikTarget) {
+                // 更新IK目标
+            }
+        });
+
+        createScene().then((scene) => {
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+
+            window.addEventListener('resize', () => {
+                engine.resize();
+            });
+        });
+    </script>
+</body>
+</html>
